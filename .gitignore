@@ -5,3 +5,7 @@ db.sqlite3
 .env
 frontend/node_modules/
 frontend/dist/
+backend-run.log
+backend-run.err
+frontend-run.log
+frontend-run.err

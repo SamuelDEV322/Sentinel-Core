@@ -73,7 +73,7 @@ JSON critico:
 }
 ```
 
-El backend calcula automaticamente `critical` y `alert`. Una lectura es critica si `temperature_c < 20`, `temperature_c > 40`, `current_a >= 2.5` o `humidity_pct > 90`.
+El backend calcula automaticamente `critical` y `alert`. Una lectura es critica si `temperature_c < 20`, `temperature_c > 40` o `current_a >= 2.5`.
 
 ## Probar con Bruno
 
@@ -110,3 +110,15 @@ El frontend consulta el backend cada 2 segundos y muestra:
 - TailwindCSS
 - Axios
 - Recharts
+
+Arquitectura:
+
+ESP32
+ ↓ POST JSON
+DRF API
+ ↓ SQLite
+Backend evaluación
+ ↓ Axios
+React Dashboard
+ ↓ Recharts
+Visualización tiempo real

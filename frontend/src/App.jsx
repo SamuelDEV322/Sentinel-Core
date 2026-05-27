@@ -21,22 +21,50 @@ const api = axios.create({
 const scenarios = [
   {
     label: 'Simular lectura normal',
-    payload: { current_a: 1.6, temperature_c: 31.2, humidity_pct: 58 },
+    payload: {
+      current_a: 1.6,
+      peak_current_a: 2.26,
+      rms_current_a: 1.6,
+      power_w: 352,
+      temperature_c: 31.2,
+      humidity_pct: 58,
+    },
     tone: 'emerald',
   },
   {
     label: 'Simular sobrecorriente',
-    payload: { current_a: 3.2, temperature_c: 32, humidity_pct: 60 },
+    payload: {
+      current_a: 3.2,
+      peak_current_a: 4.53,
+      rms_current_a: 3.2,
+      power_w: 704,
+      temperature_c: 32,
+      humidity_pct: 60,
+    },
     tone: 'red',
   },
   {
     label: 'Simular temperatura alta',
-    payload: { current_a: 1.7, temperature_c: 43.4, humidity_pct: 63 },
+    payload: {
+      current_a: 1.7,
+      peak_current_a: 2.4,
+      rms_current_a: 1.7,
+      power_w: 374,
+      temperature_c: 43.4,
+      humidity_pct: 63,
+    },
     tone: 'red',
   },
   {
     label: 'Simular humedad extrema',
-    payload: { current_a: 1.4, temperature_c: 30.5, humidity_pct: 96 },
+    payload: {
+      current_a: 1.4,
+      peak_current_a: 1.98,
+      rms_current_a: 1.4,
+      power_w: 308,
+      temperature_c: 30.5,
+      humidity_pct: 96,
+    },
     tone: 'red',
   },
 ]
@@ -132,6 +160,48 @@ function ChartCard({ title, unit, dataKey, data, color, domain }) {
           />
         </LineChart>
       </ResponsiveContainer>
+    </section>
+  )
+}
+
+function MachineStateCard({ latest, loading }) {
+  const hasReading = Boolean(latest)
+  const critical = Boolean(latest?.critical)
+  const waiting = loading || !hasReading
+  const stateTitle = waiting ? 'Esperando lectura' : critical ? 'Transformador interrumpido' : 'Transformador operativo'
+  const motorState = waiting ? '--' : critical ? 'MOTOR APAGADO' : 'MOTOR ENCENDIDO'
+  const ledLabel = waiting ? '--' : critical ? 'LED blanco titilando' : 'LED oscuro activo'
+  const borderClass = waiting
+    ? 'border-slate-700 bg-slate-900/70'
+    : critical
+      ? 'border-red-500/50 bg-red-950/40'
+      : 'border-emerald-500/50 bg-emerald-950/30'
+  const glowClass = waiting ? 'bg-slate-800/60' : critical ? 'bg-red-500/20 shadow-red-500/20' : 'bg-emerald-500/20 shadow-emerald-500/20'
+  const motorClass = waiting ? 'bg-slate-800 text-slate-300' : critical ? 'bg-red-500/20 text-red-100' : 'bg-emerald-500/20 text-emerald-100'
+  const ledClass = critical
+    ? 'border-white bg-white shadow-[0_0_24px_rgba(255,255,255,0.9)] animate-pulse'
+    : waiting
+      ? 'border-slate-600 bg-slate-950'
+      : 'border-slate-500 bg-slate-800 shadow-[0_0_18px_rgba(15,23,42,0.95)]'
+
+  return (
+    <section className={`rounded-lg border p-6 shadow-xl shadow-black/25 ${borderClass}`}>
+      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estado de maquina industrial</p>
+          <h2 className="mt-3 text-3xl font-bold text-white">{stateTitle}</h2>
+          <p className={`mt-3 inline-flex rounded-md px-3 py-2 font-mono text-sm font-bold ${motorClass}`}>
+            {motorState}
+          </p>
+        </div>
+        <div className={`flex min-w-56 items-center gap-4 rounded-lg border border-slate-700/70 p-4 ${glowClass}`}>
+          <span className={`h-12 w-12 rounded-full border-2 ${ledClass}`} />
+          <div>
+            <p className="text-xs uppercase tracking-wider text-slate-400">Indicador fisico</p>
+            <p className="mt-1 font-semibold text-slate-100">{ledLabel}</p>
+          </div>
+        </div>
+      </div>
     </section>
   )
 }
@@ -248,6 +318,7 @@ export default function App() {
         .map((reading) => ({
           time: formatTime(reading.created_at),
           current_a: Number(reading.current_a),
+          power_w: reading.power_w === null || reading.power_w === undefined ? null : Number(reading.power_w),
           temperature_c: Number(reading.temperature_c),
           humidity_pct: Number(reading.humidity_pct),
         })),
@@ -277,13 +348,46 @@ export default function App() {
           </div>
         ) : null}
 
+        <MachineStateCard latest={latest} loading={loading} />
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Corriente"
             value={formatNumber(latest?.current_a, 2)}
             unit="A"
             accent={latest?.current_a >= 2.5 ? 'red' : 'cyan'}
-            detail="ACS712"
+            detail="Principal: Irms para compatibilidad"
+          />
+          <MetricCard
+            label="Corriente pico Ip"
+            value={formatNumber(latest?.peak_current_a, 3)}
+            unit="A"
+            accent={latest?.critical ? 'red' : 'cyan'}
+            detail="Pico calculado por ESP32"
+          />
+          <MetricCard
+            label="Corriente RMS Irms"
+            value={formatNumber(latest?.rms_current_a, 3)}
+            unit="A"
+            accent={latest?.current_a >= 2.5 ? 'red' : 'cyan'}
+            detail="Corriente eficaz"
+          />
+          <MetricCard
+            label="Potencia estimada"
+            value={formatNumber(latest?.power_w, 1)}
+            unit="W"
+            accent={latest?.critical ? 'red' : 'cyan'}
+            detail="Estimacion ESP32"
+          />
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Corriente base"
+            value={formatNumber(latest?.current_a, 2)}
+            unit="A"
+            accent={latest?.current_a >= 2.5 ? 'red' : 'cyan'}
+            detail="Usada para umbral critico"
           />
           <MetricCard
             label="Temperatura"
@@ -302,7 +406,7 @@ export default function App() {
           <MetricCard label="Estado" value={loading ? '--' : status} unit="" accent={latest?.critical ? 'red' : 'emerald'} detail="Evaluacion backend" />
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
           <ChartCard
             title="Corriente vs tiempo"
             unit="A"
@@ -326,6 +430,14 @@ export default function App() {
             data={chartData}
             color="#34d399"
             domain={[0, 100]}
+          />
+          <ChartCard
+            title="Potencia vs tiempo"
+            unit="W"
+            dataKey="power_w"
+            data={chartData}
+            color="#f59e0b"
+            domain={[0, 'auto']}
           />
         </section>
 
@@ -365,11 +477,14 @@ export default function App() {
             </div>
 
             <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[680px] text-left text-sm">
+              <table className="w-full min-w-[940px] text-left text-sm">
                 <thead className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-400">
                   <tr>
                     <th className="py-3 pr-4">Hora</th>
                     <th className="py-3 pr-4">Corriente</th>
+                    <th className="py-3 pr-4">Ip</th>
+                    <th className="py-3 pr-4">Irms</th>
+                    <th className="py-3 pr-4">Potencia</th>
                     <th className="py-3 pr-4">Temperatura</th>
                     <th className="py-3 pr-4">Humedad</th>
                     <th className="py-3 pr-4">Estado</th>
@@ -380,6 +495,9 @@ export default function App() {
                     <tr key={reading.id} className="text-slate-200">
                       <td className="py-3 pr-4 text-slate-400">{formatTime(reading.created_at)}</td>
                       <td className="py-3 pr-4">{formatNumber(reading.current_a, 2)} A</td>
+                      <td className="py-3 pr-4">{formatNumber(reading.peak_current_a, 3)} A</td>
+                      <td className="py-3 pr-4">{formatNumber(reading.rms_current_a, 3)} A</td>
+                      <td className="py-3 pr-4">{formatNumber(reading.power_w, 1)} W</td>
                       <td className="py-3 pr-4">
                         {formatNumber(reading.temperature_c, 1)} {'\u00b0C'}
                       </td>
@@ -397,7 +515,7 @@ export default function App() {
                   ))}
                   {!tableReadings.length ? (
                     <tr>
-                      <td className="py-8 text-center text-slate-500" colSpan="5">
+                      <td className="py-8 text-center text-slate-500" colSpan="8">
                         Sin lecturas registradas
                       </td>
                     </tr>

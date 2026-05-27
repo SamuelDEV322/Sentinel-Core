@@ -3,6 +3,9 @@ from django.db import models
 
 class Reading(models.Model):
     current_a = models.FloatField()
+    peak_current_a = models.FloatField(null=True, blank=True)
+    rms_current_a = models.FloatField(null=True, blank=True)
+    power_w = models.FloatField(null=True, blank=True)
     temperature_c = models.FloatField()
     humidity_pct = models.FloatField()
     alert = models.BooleanField(default=False)
